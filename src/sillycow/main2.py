@@ -5,11 +5,21 @@ import sys
 def parse_tfvars_file(file_path):
     variables = {}
     with open(file_path, "r") as file:
+        in_multiline_comment = False
         for line in file:
             line = line.strip()
-            if line and not line.startswith("#"):
-                key, value = line.split("=", 1)
-                variables[key.strip()] = value.strip().strip('"')
+            if not in_multiline_comment:
+                if line.startswith("/*"):
+                    in_multiline_comment = True
+                    continue
+                elif line.startswith("#") or line.startswith("//"):
+                    continue
+                elif "=" in line:
+                    key, value = line.split("=", 1)
+                    variables[key.strip()] = value.strip().strip('"')
+            else:
+                if line.endswith("*/"):
+                    in_multiline_comment = False
     return variables
 
 
