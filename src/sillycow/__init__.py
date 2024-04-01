@@ -16,7 +16,5 @@ def main() -> int:
         help="Base directory to search for .tfvars files",
     )
     args = parser.parse_args()
-
     code = main2.compare_tfvars_files(args.basedir)
-
     return code

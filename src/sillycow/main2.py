@@ -1,5 +1,3 @@
-import glob
-import os
 import pathlib
 import sys
 
@@ -30,7 +28,8 @@ def parse_tfvars_file(file_path):
 
 
 def compare_tfvars_files(base_dir):
-    tfvars_files = glob.glob(os.path.join(base_dir, "*.tfvars"))
+    base_path = pathlib.Path(base_dir)
+    tfvars_files = list(base_path.glob("*.tfvars"))
 
     if len(tfvars_files) < 2:
         print(
@@ -47,16 +46,35 @@ def compare_tfvars_files(base_dir):
     for variables in variables_list[1:]:
         common_keys &= set(variables.keys())
 
+    common_values = {}
+    differences = {}
     for key in common_keys:
         values = [
-            (variables[key], tfvars_files[i])
-            for i, variables in enumerate(variables_list)
+            (variables[key], str(tfvars_file))
+            for variables, tfvars_file in zip(variables_list, tfvars_files)
         ]
         unique_values = set(value for value, _ in values)
+        common_values[key] = values[0][0] if len(unique_values) == 1 else None
 
         if len(unique_values) > 1:
-            print(f"Difference found for variable: {key}")
+            differences[key] = values
+
+    print("Common values:")
+    max_key_width = max(len(key) for key in common_values.keys())
+    for key in sorted(common_values.keys()):
+        value = common_values[key]
+        if value is not None:
+            print(f"{key:<{max_key_width}} = {value}")
+
+    print()
+
+    if differences:
+        print("Differences:")
+        for key, values in differences.items():
+            print(f"Variable: {key}")
             sorted_values = sorted(values, key=lambda x: x[0])
             for value, file in sorted_values:
                 print(f"  {file}: {key} = {value}")
             print()
+
+    return 0
