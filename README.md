@@ -1,5 +1,8 @@
 # sillycow
 
-## Learning jinja2 template inheritance
+```bash
+pip install git+https://github.com/taylormonacelli/sillycow
+sillycow --basedir=/path/to/list/of/tfvar/files
+```
 
-https://jinja.palletsprojects.com/en/latest/templates/#template-inheritance
+Output the common and different variables and values.

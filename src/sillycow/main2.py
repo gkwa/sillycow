@@ -1,20 +1,6 @@
 import pathlib
 import sys
 
-import jinja2
-
-
-def get_template(template_name):
-    TEMPLATES_PATH = pathlib.Path(__file__).resolve().parent / "templates"
-    loader = jinja2.FileSystemLoader(searchpath=TEMPLATES_PATH)
-    env = jinja2.Environment(loader=loader)
-    return env.get_template(template_name)
-
-
-def render_template(template_name, data=None):
-    template = get_template(template_name)
-    return template.render(data=data)
-
 
 def parse_tfvars_file(file_path):
     variables = {}
@@ -42,39 +28,57 @@ def compare_tfvars_files(base_dir):
         variables = parse_tfvars_file(tfvars_file)
         variables_list.append(variables)
 
-    common_keys = set(variables_list[0].keys())
-    for variables in variables_list[1:]:
-        common_keys &= set(variables.keys())
+    all_keys = set().union(*[variables.keys() for variables in variables_list])
 
     common_values = {}
     differences = {}
-    for key in common_keys:
+    variable_status = {}
+
+    for key in all_keys:
         values = [
-            (variables[key], str(tfvars_file))
+            (variables.get(key, None), str(tfvars_file))
             for variables, tfvars_file in zip(variables_list, tfvars_files)
         ]
-        unique_values = set(value for value, _ in values)
-        common_values[key] = values[0][0] if len(unique_values) == 1 else None
+        unique_values = set(value for value, _ in values if value is not None)
 
-        if len(unique_values) > 1:
-            differences[key] = values
+        if all(value is not None for value, _ in values):
+            if len(unique_values) == 1:
+                common_values[key] = unique_values.pop()
+            else:
+                differences[key] = values
+        else:
+            missing_files = [file for value, file in values if value is None]
+            present_files = [
+                (file, value) for value, file in values if value is not None
+            ]
+            variable_status[key] = {"missing": missing_files, "present": present_files}
 
-    print("Common values:")
-    max_key_width = max(len(key) for key in common_values.keys())
-    for key in sorted(common_values.keys()):
-        value = common_values[key]
-        if value is not None:
+    if common_values:
+        print("Common values:")
+        max_key_width = max(len(key) for key in common_values.keys())
+        for key in sorted(common_values.keys()):
+            value = common_values[key]
             print(f"{key:<{max_key_width}} = {value}")
-
-    print()
+        print()
 
     if differences:
         print("Differences:")
         for key, values in differences.items():
             print(f"Variable: {key}")
-            sorted_values = sorted(values, key=lambda x: x[0])
+            sorted_values = sorted(values, key=lambda x: x[0] or "")
             for value, file in sorted_values:
-                print(f"  {file}: {key} = {value}")
+                if value is not None:
+                    print(f"  {file}: {key} = {value}")
+            print()
+
+    if variable_status:
+        print("Variable status:")
+        for key, status in variable_status.items():
+            print(f"Variable: {key}")
+            for file in status["missing"]:
+                print(f"  Missing in {file}")
+            for file, value in status["present"]:
+                print(f"  Present in {file} with value {value}")
             print()
 
     return 0
